@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DSA Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f4f1e9; --ink:#1c2430; --line:#d8d2c2;
+  --navy:#233a5e; --amber:#d98e2e; --green:#3f7a52; --red:#b24b3c;
+  --panel:#fbfaf6;
+}
+:root:not([data-theme="light"]) { }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#14181f; --ink:#e8e6dd; --line:#2b3340; --panel:#1b212b;
+  }
+}
+:root[data-theme="dark"]{ --paper:#14181f; --ink:#e8e6dd; --line:#2b3340; --panel:#1b212b; }
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;}
+body{
+  background:
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0/100% 28px,
+    var(--paper);
+  color:var(--ink);
+  font-family:'JetBrains Mono',monospace;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:920px;margin:0 auto;padding:28px 20px 60px;}
+h1{font-family:'Space Grotesk',sans-serif;font-size:28px;margin:0 0 4px;letter-spacing:-0.02em;}
+.sub{margin:0 0 22px;font-size:13px;opacity:.7;line-height:1.5;max-width:60ch;}
+.tabs{display:flex;gap:2px;border:1px solid var(--line);width:fit-content;border-radius:8px;overflow:hidden;margin-bottom:18px;}
+.tab{padding:9px 16px;font:inherit;font-size:13px;background:none;border:none;color:var(--ink);cursor:pointer;opacity:.55;}
+.tab.active{background:var(--navy);color:#fff;opacity:1;}
+.panel{display:none;}
+.panel.active{display:block;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-bottom:16px;font-size:12px;}
+.controls label{display:flex;flex-direction:column;gap:4px;opacity:.85;}
+select,input[type=text],input[type=number]{font:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);}
+input[type=range]{width:110px;}
+button.act{font:inherit;font-size:12px;padding:8px 14px;border-radius:6px;border:1px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer;}
+button.act.secondary{background:none;color:var(--ink);border-color:var(--line);}
+button.act:disabled{opacity:.4;cursor:not-allowed;}
+#bars,#sbars{display:flex;align-items:flex-end;gap:3px;height:220px;border-bottom:1px solid var(--line);padding-top:10px;}
+.bar{flex:1;background:var(--navy);border-radius:3px 3px 0 0;position:relative;transition:background .15s;min-width:2px;}
+.bar.compare{background:var(--amber);}
+.bar.swap{background:var(--red);}
+.bar.sorted{background:var(--green);}
+.bar.mid{background:var(--amber);}
+.bar.lo,.bar.hi{background:var(--ink);opacity:.35;}
+.bar.found{background:var(--green);}
+.bar.eliminated{opacity:.2;}
+.status{margin-top:10px;font-size:12.5px;min-height:18px;opacity:.85;}
+#grid{display:grid;gap:2px;margin-bottom:14px;}
+.cell{aspect-ratio:1;background:var(--paper);border:1px solid var(--line);border-radius:2px;cursor:pointer;}
+.cell.wall{background:var(--ink);opacity:.75;}
+.cell.start{background:var(--navy);}
+.cell.end{background:var(--red);}
+.cell.visited{background:var(--amber);opacity:.55;}
+.cell.path{background:var(--green);}
+.hint{font-size:11.5px;opacity:.6;margin-bottom:12px;}
+footer{margin-top:34px;font-size:11px;opacity:.5;}
+a{color:var(--navy);}
+:root[data-theme="dark"] a, @media (prefers-color-scheme:dark){a{color:#8fb2e6;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DSA Visualizer</h1>
+  <p class="sub">Watch sorting, searching and graph-traversal algorithms run step by step. Pick a tab, tweak the controls, hit run.</p>
+
+  <div class="tabs">
+    <button class="tab active" data-panel="sort">Sorting</button>
+    <button class="tab" data-panel="search">Binary Search</button>
+    <button class="tab" data-panel="graph">BFS / DFS</button>
+  </div>
+
+  <!-- SORTING -->
+  <div class="panel active" id="sort">
+    <div class="card">
+      <div class="controls">
+        <label>Algorithm
+          <select id="algo">
+            <option value="bubble">Bubble Sort</option>
+            <option value="selection">Selection Sort</option>
+            <option value="insertion">Insertion Sort</option>
+            <option value="quick">Quick Sort</option>
+          </select>
+        </label>
+        <label>Size <input type="range" id="size" min="10" max="70" value="35"></label>
+        <label>Speed <input type="range" id="speed" min="1" max="100" value="60"></label>
+        <button class="act secondary" id="newArr">New array</button>
+        <button class="act" id="runSort">Sort</button>
+      </div>
+      <div id="bars"></div>
+      <div class="status" id="sortStatus">Comparisons: 0 · Swaps: 0</div>
+    </div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="panel" id="search">
+    <div class="card">
+      <div class="controls">
+        <label>Size <input type="range" id="ssize" min="10" max="40" value="20"></label>
+        <label>Speed <input type="range" id="sspeed" min="1" max="100" value="60"></label>
+        <button class="act secondary" id="newSArr">New array</button>
+        <label>Target <input type="number" id="target" style="width:70px"></label>
+        <button class="act" id="runSearch">Search</button>
+      </div>
+      <div id="sbars"></div>
+      <div class="status" id="searchStatus">Sorted array shown as bars — pick a target and search.</div>
+    </div>
+  </div>
+
+  <!-- GRAPH -->
+  <div class="panel" id="graph">
+    <div class="card">
+      <div class="controls">
+        <label>Algorithm
+          <select id="galgo">
+            <option value="bfs">BFS (shortest path)</option>
+            <option value="dfs">DFS</option>
+          </select>
+        </label>
+        <label>Speed <input type="range" id="gspeed" min="1" max="100" value="70"></label>
+        <button class="act secondary" id="clearWalls">Clear walls</button>
+        <button class="act secondary" id="randomWalls">Random walls</button>
+        <button class="act" id="runGraph">Run</button>
+      </div>
+      <p class="hint">Navy = start, red = end. Click empty cells to toggle walls.</p>
+      <div id="grid"></div>
+      <div class="status" id="graphStatus">Ready.</div>
+    </div>
+  </div>
+
+  <footer>Built with vanilla HTML/CSS/JS. No frameworks, no dependencies. MIT licensed.</footer>
+</div>
+
+<script>
+// ---------- shared ----------
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const speedToMs = v => 210 - (v/100)*205; // higher slider -> faster
+function setTabs(){
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.onclick = ()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById(t.dataset.panel).classList.add('active');
+    };
+  });
+}
+setTabs();
+
+// ---------- SORTING ----------
+let arr = [], sortRunning = false;
+const barsEl = document.getElementById('bars');
+const sizeEl = document.getElementById('size');
+const speedEl = document.getElementById('speed');
+const statusEl = document.getElementById('sortStatus');
+
+function genArray(n){ return Array.from({length:n}, ()=> 8 + Math.floor(Math.random()*192)); }
+function renderBars(a, cls={}){
+  barsEl.innerHTML = '';
+  a.forEach((v,i)=>{
+    const d = document.createElement('div');
+    d.className = 'bar ' + (cls[i]||'');
+    d.style.height = v + 'px';
+    barsEl.appendChild(d);
+  });
+}
+function newSortArray(){
+  arr = genArray(+sizeEl.value);
+  renderBars(arr);
+  statusEl.textContent = 'Comparisons: 0 · Swaps: 0';
+}
+sizeEl.oninput = newSortArray;
+document.getElementById('newArr').onclick = newSortArray;
+newSortArray();
+
+async function* bubbleGen(a){
+  a = a.slice(); let comps=0, swaps=0;
+  for(let i=0;i<a.length-1;i++){
+    for(let j=0;j<a.length-1-i;j++){
+      comps++;
+      yield {a, cls:{[j]:'compare',[j+1]:'compare'}, comps, swaps};
+      if(a[j] > a[j+1]){ [a[j],a[j+1]]=[a[j+1],a[j]]; swaps++;
+        yield {a, cls:{[j]:'swap',[j+1]:'swap'}, comps, swaps}; }
+    }
+  }
+  yield {a, cls:{}, comps, swaps, done:true};
+}
+async function* selectionGen(a){
+  a = a.slice(); let comps=0, swaps=0;
+  for(let i=0;i<a.length;i++){
+    let min=i;
+    for(let j=i+1;j<a.length;j++){
+      comps++;
+      yield {a, cls:{[min]:'compare',[j]:'compare'}, comps, swaps};
+      if(a[j]<a[min]) min=j;
+    }
+    if(min!==i){ [a[i],a[min]]=[a[min],a[i]]; swaps++;
+      yield {a, cls:{[i]:'swap',[min]:'swap'}, comps, swaps}; }
+  }
+  yield {a, cls:{}, comps, swaps, done:true};
+}
+async function* insertionGen(a){
+  a = a.slice(); let comps=0, swaps=0;
+  for(let i=1;i<a.length;i++){
+    let j=i;
+    while(j>0){
+      comps++;
+      yield {a, cls:{[j]:'compare',[j-1]:'compare'}, comps, swaps};
+      if(a[j-1] > a[j]){ [a[j-1],a[j]]=[a[j],a[j-1]]; swaps++; j--;
+        yield {a, cls:{[j]:'swap'}, comps, swaps}; }
+      else break;
+    }
+  }
+  yield {a, cls:{}, comps, swaps, done:true};
+}
+async function* quickGen(a){
+  a = a.slice(); let comps=0, swaps=0;
+  async function* qsort(lo,hi){
+    if(lo>=hi) return;
+    let pivot=a[hi], i=lo;
+    for(let j=lo;j<hi;j++){
+      comps++;
+      yield {a, cls:{[j]:'compare',[hi]:'mid'}, comps, swaps};
+      if(a[j] < pivot){
+        [a[i],a[j]]=[a[j],a[i]]; swaps++;
+        yield {a, cls:{[i]:'swap',[j]:'swap'}, comps, swaps};
+        i++;
+      }
+    }
+    [a[i],a[hi]]=[a[hi],a[i]]; swaps++;
+    yield {a, cls:{[i]:'swap'}, comps, swaps};
+    yield* qsort(lo,i-1);
+    yield* qsort(i+1,hi);
+  }
+  yield* qsort(0,a.length-1);
+  yield {a, cls:{}, comps, swaps, done:true};
+}
+const gens = {bubble:bubbleGen, selection:selectionGen, insertion:insertionGen, quick:quickGen};
+
+document.getElementById('runSort').onclick = async ()=>{
+  if(sortRunning) return;
+  sortRunning = true;
+  document.getElementById('runSort').disabled = true;
+  document.getElementById('newArr').disabled = true;
+  const gen = gens[document.getElementById('algo').value](arr);
+  for await (const step of gen){
+    renderBars(step.a, step.cls);
+    statusEl.textContent = `Comparisons: ${step.comps} · Swaps: ${step.swaps}`;
+    await sleep(speedToMs(+speedEl.value));
+  }
+  const finalCls = {}; arr.forEach((_,i)=>finalCls[i]='sorted');
+  renderBars(arr, finalCls);
+  sortRunning = false;
+  document.getElementById('runSort').disabled = false;
+  document.getElementById('newArr').disabled = false;
+};
+
+// ---------- BINARY SEARCH ----------
+let sarr = [];
+const sbarsEl = document.getElementById('sbars');
+function newSearchArray(){
+  const n = +document.getElementById('ssize').value;
+  sarr = genArray(n).sort((a,b)=>a-b);
+  renderSBars(sarr);
+  document.getElementById('searchStatus').textContent = 'Sorted array shown as bars — pick a target and search.';
+}
+document.getElementById('ssize').oninput = newSearchArray;
+document.getElementById('newSArr').onclick = newSearchArray;
+function renderSBars(a, cls={}){
+  sbarsEl.innerHTML='';
+  a.forEach((v,i)=>{
+    const d = document.createElement('div');
+    d.className = 'bar ' + (cls[i]||'');
+    d.style.height = v+'px';
+    sbarsEl.appendChild(d);
+  });
+}
+newSearchArray();
+
+document.getElementById('runSearch').onclick = async ()=>{
+  const target = +document.getElementById('target').value;
+  const btn = document.getElementById('runSearch');
+  btn.disabled = true;
+  let lo=0, hi=sarr.length-1, steps=0, found=-1;
+  const st = document.getElementById('searchStatus');
+  while(lo<=hi){
+    steps++;
+    const mid = Math.floor((lo+hi)/2);
+    const cls = {};
+    for(let k=0;k<sarr.length;k++){
+      if(k<lo || k>hi) cls[k]='eliminated'; else if(k===mid) cls[k]='mid'; else cls[k]='lo';
+    }
+    renderSBars(sarr, cls);
+    st.textContent = `Step ${steps}: checking index ${mid} (value ${sarr[mid]}) against target ${target}`;
+    await sleep(speedToMs(+document.getElementById('sspeed').value));
+    if(sarr[mid]===target){ found=mid; break; }
+    else if(sarr[mid]<target) lo=mid+1; else hi=mid-1;
+  }
+  if(found>=0){
+    const cls={}; cls[found]='found';
+    renderSBars(sarr, cls);
+    st.textContent = `Found ${target} at index ${found} in ${steps} step(s).`;
+  } else {
+    st.textContent = `${target} is not in the array (checked in ${steps} step(s)).`;
+    renderSBars(sarr, {});
+  }
+  btn.disabled = false;
+};
+
+// ---------- GRAPH BFS/DFS ----------
+const ROWS=10, COLS=16;
+let gridState = [], gridRunning=false;
+const gridEl = document.getElementById('grid');
+gridEl.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+function buildGrid(){
+  gridState = Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  gridEl.innerHTML='';
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const cell = document.createElement('div');
+      cell.className='cell';
+      cell.dataset.r=r; cell.dataset.c=c;
+      if(r===0&&c===0) cell.classList.add('start');
+      if(r===ROWS-1&&c===COLS-1) cell.classList.add('end');
+      cell.onclick = ()=>{
+        if(gridRunning) return;
+        if((r===0&&c===0)||(r===ROWS-1&&c===COLS-1)) return;
+        gridState[r][c] = gridState[r][c]?0:1;
+        cell.classList.toggle('wall');
+      };
+      gridEl.appendChild(cell);
+    }
+  }
+}
+buildGrid();
+document.getElementById('clearWalls').onclick = ()=>{ if(!gridRunning) buildGrid(); document.getElementById('graphStatus').textContent='Ready.'; };
+document.getElementById('randomWalls').onclick = ()=>{
+  if(gridRunning) return;
+  buildGrid();
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if((r===0&&c===0)||(r===ROWS-1&&c===COLS-1)) continue;
+    if(Math.random()<0.25){ gridState[r][c]=1; gridEl.children[r*COLS+c].classList.add('wall'); }
+  }
+};
+function cellEl(r,c){ return gridEl.children[r*COLS+c]; }
+
+async function* bfsGen(){
+  const q=[[0,0]]; const seen=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  seen[0][0]=true; const prev={};
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  while(q.length){
+    const [r,c]=q.shift();
+    if(r===ROWS-1 && c===COLS-1){ yield {type:'done', prev}; return; }
+    if(!(r===0&&c===0)) yield {type:'visit', r, c};
+    for(const [dr,dc] of dirs){
+      const nr=r+dr, nc=c+dc;
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&!seen[nr][nc]&&!gridState[nr][nc]){
+        seen[nr][nc]=true; prev[nr+','+nc]=[r,c]; q.push([nr,nc]);
+      }
+    }
+  }
+  yield {type:'none'};
+}
+async function* dfsGen(){
+  const stack=[[0,0]]; const seen=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  seen[0][0]=true; const prev={};
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  while(stack.length){
+    const [r,c]=stack.pop();
+    if(r===ROWS-1 && c===COLS-1){ yield {type:'done', prev}; return; }
+    if(!(r===0&&c===0)) yield {type:'visit', r, c};
+    for(const [dr,dc] of dirs){
+      const nr=r+dr, nc=c+dc;
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&!seen[nr][nc]&&!gridState[nr][nc]){
+        seen[nr][nc]=true; prev[nr+','+nc]=[r,c]; stack.push([nr,nc]);
+      }
+    }
+  }
+  yield {type:'none'};
+}
+document.getElementById('runGraph').onclick = async ()=>{
+  if(gridRunning) return;
+  gridRunning = true;
+  document.getElementById('runGraph').disabled = true;
+  const st = document.getElementById('graphStatus');
+  st.textContent = 'Running...';
+  const algo = document.getElementById('galgo').value;
+  const gen = algo==='bfs' ? bfsGen() : dfsGen();
+  const ms = speedToMs(+document.getElementById('gspeed').value);
+  let result = null;
+  for await (const step of gen){
+    if(step.type==='visit'){
+      cellEl(step.r, step.c).classList.add('visited');
+      await sleep(ms/3);
+    } else if(step.type==='done'){
+      result = step.prev;
+    } else if(step.type==='none'){
+      st.textContent = 'No path exists — the end is walled off.';
+    }
+  }
+  if(result){
+    let cur = [ROWS-1,COLS-1], path=[cur];
+    while(!(cur[0]===0&&cur[1]===0)){
+      cur = result[cur[0]+','+cur[1]];
+      path.push(cur);
+    }
+    path.reverse();
+    for(const [r,c] of path){
+      if((r===0&&c===0)||(r===ROWS-1&&c===COLS-1)) continue;
+      cellEl(r,c).classList.add('path');
+      await sleep(ms/4);
+    }
+    st.textContent = `Path found — ${path.length-1} step(s) from start to end.`;
+  }
+  gridRunning = false;
+  document.getElementById('runGraph').disabled = false;
+};
+</script>
+</body>
+</html>
